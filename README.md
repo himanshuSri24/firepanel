@@ -1,6 +1,6 @@
 # Firepanel
 
-[![CI](https://github.com/himanshuSriv24/firepanel/actions/workflows/ci.yml/badge.svg)](https://github.com/himanshuSriv24/firepanel/actions/workflows/ci.yml)
+[![CI](https://github.com/himanshuSri24/firepanel/actions/workflows/ci.yml/badge.svg)](https://github.com/himanshuSri24/firepanel/actions/workflows/ci.yml)
 
 Tools for the Firebase Firestore console: a search box on every list, a filter
 for the fields of an open document, and a **Copy JSON** button that copies a
@@ -143,7 +143,7 @@ From the Chrome Web Store (recommended — it updates itself):
 > _Listing link goes here once the first review has passed._
 
 Or from a release: download `firepanel.zip` from
-[Releases](https://github.com/himanshuSriv24/firepanel/releases/latest), extract
+[Releases](https://github.com/himanshuSri24/firepanel/releases/latest), extract
 it to a folder you will keep, then `chrome://extensions/` → **Developer mode**
 on → **Load unpacked** → select that folder. Chrome reads the folder from disk
 on every start, so it has to stay put.

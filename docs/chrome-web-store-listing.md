@@ -54,7 +54,7 @@ time, so change it in `package.json` rather than here.
 > Firepanel is an independent project. It is not affiliated with, endorsed by, or
 > sponsored by Google. Firebase and Firestore are trademarks of Google LLC.
 >
-> Source code, issues and changelog: https://github.com/himanshuSriv24/firepanel
+> Source code, issues and changelog: https://github.com/himanshuSri24/firepanel
 
 ## Single purpose
 
@@ -107,7 +107,7 @@ Certifications: not sold to third parties; not used or transferred for purposes
 unrelated to the single purpose; not used or transferred to determine
 creditworthiness or for lending.
 
-Privacy policy URL: `https://github.com/himanshuSriv24/firepanel/blob/main/PRIVACY.md`
+Privacy policy URL: `https://github.com/himanshuSri24/firepanel/blob/main/PRIVACY.md`
 
 ## Screenshots
 
