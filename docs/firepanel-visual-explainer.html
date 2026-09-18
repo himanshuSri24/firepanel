@@ -1,0 +1,557 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Firepanel — how it works</title>
+    <style>
+      :root {
+        --bg: #171a21;
+        --panel: #1f2430;
+        --line: #2e3545;
+        --text: #e7ecf3;
+        --muted: #9aa6ba;
+        --teal: #2dd4bf;
+        --amber: #f5b342;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        padding: 0 16px 96px;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          16px/1.65 -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          Roboto,
+          sans-serif;
+      }
+      main {
+        max-width: 900px;
+        margin: 0 auto;
+      }
+      header {
+        padding: 56px 0 24px;
+        border-bottom: 1px solid var(--line);
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 34px;
+        letter-spacing: -0.02em;
+      }
+      h2 {
+        margin: 56px 0 8px;
+        font-size: 23px;
+        letter-spacing: -0.01em;
+        padding-top: 20px;
+        border-top: 1px solid var(--line);
+      }
+      h3 {
+        margin: 32px 0 8px;
+        font-size: 17px;
+        color: var(--teal);
+      }
+      p,
+      li {
+        color: var(--text);
+      }
+      .lede {
+        color: var(--muted);
+        font-size: 18px;
+      }
+      .note {
+        background: var(--panel);
+        border-left: 3px solid var(--amber);
+        padding: 12px 16px;
+        border-radius: 0 8px 8px 0;
+        margin: 20px 0;
+        color: var(--muted);
+      }
+      .note strong {
+        color: var(--text);
+      }
+      figure {
+        margin: 24px 0;
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 20px;
+        overflow-x: auto;
+      }
+      figcaption {
+        color: var(--muted);
+        font-size: 14px;
+        margin-top: 12px;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin: 20px 0;
+        font-size: 15px;
+      }
+      th,
+      td {
+        text-align: left;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        vertical-align: top;
+      }
+      th {
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      code {
+        font:
+          13px/1.5 ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        background: #11141a;
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 1px 5px;
+        color: var(--teal);
+      }
+      pre {
+        background: #11141a;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        padding: 16px;
+        overflow-x: auto;
+      }
+      pre code {
+        background: none;
+        border: none;
+        padding: 0;
+        color: var(--text);
+      }
+      dl {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        padding: 8px 20px 20px;
+      }
+      dt {
+        color: var(--teal);
+        font-weight: 600;
+        margin-top: 18px;
+      }
+      dd {
+        margin: 4px 0 0;
+        color: var(--muted);
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Firepanel</h1>
+        <p class="lede">
+          A read-only Chrome extension that adds search and JSON copying to the
+          Firebase Firestore console. This page explains how it works today —
+          what runs, in what order, and where each decision lives in the code.
+        </p>
+      </header>
+
+      <h2>Primer: the unfamiliar words</h2>
+      <dl>
+        <dt>Content script (Manifest V3)</dt>
+        <dd>
+          A JavaScript file Chrome injects into matching web pages. It shares
+          the page's DOM but not its JavaScript variables, and it runs with the
+          extension's permissions rather than the page's. Firepanel is one
+          content script and nothing else — no background worker, no popup.
+        </dd>
+
+        <dt>Angular CDK virtual scroller</dt>
+        <dd>
+          The mechanism the Firebase console uses to render long lists. Only the
+          rows currently on screen exist in the DOM; scrolling swaps their
+          contents. This is why a filter cannot simply read the list — most of
+          it is not there to read.
+        </dd>
+
+        <dt><code>__name__</code></dt>
+        <dd>
+          Firestore's reserved field for a document's own ID. Queries can use it
+          for range comparisons, which is what makes a prefix search possible —
+          <code>&gt;= "p60"</code> finds everything from that point on in ID
+          order. Firestore has no substring operator on IDs, at any price.
+        </dd>
+
+        <dt>Chrome Web Store review</dt>
+        <dd>
+          A human and automated check before an extension is listed, focused on
+          whether the requested permissions match the stated purpose and whether
+          the listing implies affiliation with a platform it merely extends.
+        </dd>
+      </dl>
+
+      <h2>What it adds</h2>
+      <table>
+        <tr>
+          <th>Feature</th>
+          <th>Where it appears</th>
+          <th>Owned by</th>
+        </tr>
+        <tr>
+          <td>Filter box on every list</td>
+          <td>Collections, documents, subcollections</td>
+          <td><code>list-filter.ts</code></td>
+        </tr>
+        <tr>
+          <td>Prefix search across a whole collection</td>
+          <td>Documents lists, as an action row</td>
+          <td><code>query-view.ts</code></td>
+        </tr>
+        <tr>
+          <td>Field filter by key or value</td>
+          <td>Above an open document's fields</td>
+          <td><code>field-filter.ts</code></td>
+        </tr>
+        <tr>
+          <td>Copy JSON</td>
+          <td>Breadcrumb bar</td>
+          <td>
+            <code>copy-button.ts</code> + <code>document-expander.ts</code>
+          </td>
+        </tr>
+      </table>
+
+      <h2>How it stays attached</h2>
+      <p>
+        The console is a single-page app that rebuilds its panels on every
+        navigation, so injection is not a one-off. A watcher re-runs a sync on
+        every DOM mutation it did not cause itself, on a one-second tick, and
+        whenever the tab becomes visible. Each component decides for itself
+        whether it still has work to do.
+      </p>
+
+      <figure>
+        <pre class="mermaid">
+flowchart TD
+  A[Content script loads at document_idle] --> B[ConsoleWatcher.start]
+  B --> C{What woke us?}
+  C -->|DOM mutation, not ours| D[schedule: debounce 300ms]
+  C -->|1s tick, tab visible| D
+  C -->|visibilitychange to visible| D
+  D --> E[Firepanel.sync]
+  E --> F[Theme changed? remount everything]
+  E --> G[PanelFilterManager.sync]
+  E --> H[CopyJsonButton.sync]
+  E --> I[FieldFilter.sync]
+  E -->|throws 5 times in a row| J[Stop and report once]
+        </pre>
+        <figcaption>
+          The watcher ignores mutations caused by Firepanel's own injected
+          nodes, which is what stops each injection from triggering the next.
+        </figcaption>
+      </figure>
+
+      <div class="note">
+        <strong>Why a plain tick rather than a clever event.</strong> The
+        console repaints for reasons that are not observable from outside it —
+        theme toggles rewrite styles rather than nodes, panels swap without
+        navigation. Each component compares the surface it mounted against to
+        what is painted now and rebuilds if they differ, so the sync only has to
+        run often enough, not at exactly the right moment.
+      </div>
+
+      <h2>Copying a whole document</h2>
+      <p>
+        The console renders a map's or array's children only once that branch is
+        open, so a copy of what is on screen would be a copy of whatever the
+        user happened to expand. Firepanel opens every collapsed branch first.
+      </p>
+
+      <figure>
+        <pre class="mermaid">
+sequenceDiagram
+  participant U as User
+  participant B as CopyJsonButton
+  participant E as DocumentExpander
+  participant P as DocumentParser
+  participant C as Clipboard
+
+  U->>B: Click Copy JSON
+  B->>E: expandAll(fieldsPanel)
+  loop until nothing collapsed, max 15 passes
+    E->>E: find map/array nodes with no rendered children
+    E->>E: click only a disclosure control
+    E-->>E: wait 80ms for the render
+  end
+  E-->>B: clicked / unresolved counts
+  B->>P: parse(fieldsPanel)
+  P-->>B: plain object
+  B->>C: writeText(JSON)
+  C-->>U: "Copied!" or "Copied (n not expanded)"
+        </pre>
+        <figcaption>
+          Nothing is clicked unless it is a disclosure control, which is what
+          keeps a read-only guarantee while still driving the UI.
+        </figcaption>
+      </figure>
+
+      <h3>What counts as a disclosure control</h3>
+      <p>
+        An element with <code>aria-expanded="false"</code>, or failing that, a
+        clickable element positioned to the <em>left of the field key</em> —
+        where the console puts its chevron and never puts a row action. Anything
+        labelled edit, delete, add or copy is excluded outright. A field whose
+        control cannot be identified is skipped and counted, and the button says
+        so rather than silently copying a partial document.
+      </p>
+
+      <h2>Finding a document the list will not load</h2>
+      <p>
+        A documents list stops accepting rows after a few hundred, so scrolling
+        cannot reach an arbitrary ID. Firestore cannot match the middle of an ID
+        at all. What it can do is a range over <code>__name__</code>, and the
+        console's own query builder can express exactly that — and puts it in
+        the URL.
+      </p>
+
+      <figure>
+        <pre class="mermaid">
+flowchart LR
+  A[User types p60] --> B{Is it in the loaded names?}
+  B -->|Yes| C[Filter the overlay, click to open]
+  B -->|No| D[Offer two actions]
+  D --> E["Search all p60 and after<br/>(Enter)"]
+  D --> F["Open p60<br/>(Shift+Enter)"]
+  E --> G[QueryView.prefixUrl]
+  G --> H["/data/...?view=query-view<br/>&query=2|LIM|2/50|WH|1|8/__name__|GTE|STR|3/p60"]
+  H --> I[New tab: console runs it server-side]
+  F --> J["/data/~2Forders~2Fp60"]
+        </pre>
+        <figcaption>
+          The query string is length-prefixed: each value is written as
+          <code>&lt;length&gt;/&lt;value&gt;</code>. A unit test pins the exact
+          string the console itself produces.
+        </figcaption>
+      </figure>
+
+      <h2>Colour</h2>
+      <p>
+        The console ships light and dark themes and marks neither on the
+        elements Firepanel injects into, so every colour is derived from what is
+        actually painted behind the injection point.
+      </p>
+
+      <figure>
+        <pre class="mermaid">
+flowchart TD
+  A[surfaceOf element] --> B[paintedAncestor: walk up]
+  B --> C{Found a painted background?}
+  C -->|Yes| D[Use that colour]
+  C -->|No| E[prefers-color-scheme fallback]
+  F[isDark] --> B
+  G[accent] --> F
+  H[fingerprint] --> B
+        </pre>
+        <figcaption>
+          <code>paintedAncestor</code> is the single walk both entry points
+          call. Neither calls the other, which is the property that keeps the
+          pair from recursing when a page has nothing painted.
+        </figcaption>
+      </figure>
+
+      <h2>Where data lives</h2>
+      <table>
+        <tr>
+          <th>Data</th>
+          <th>Lifetime</th>
+          <th>Leaves the browser?</th>
+        </tr>
+        <tr>
+          <td>Harvested list names</td>
+          <td>In memory, per panel, cleared on remount</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td>Parsed document JSON</td>
+          <td>Built on click, handed to the clipboard, discarded</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td>Resolved theme colours</td>
+          <td>In memory, recomputed on remount</td>
+          <td>No</td>
+        </tr>
+        <tr>
+          <td>Anything persisted</td>
+          <td colspan="2">
+            There is none: no storage API, no cookies, no network calls of its
+            own
+          </td>
+        </tr>
+      </table>
+
+      <h2>Code map</h2>
+      <table>
+        <tr>
+          <th>File</th>
+          <th>Responsibility</th>
+        </tr>
+        <tr>
+          <td><code>src/content.ts</code></td>
+          <td>
+            Composition root; theme remount; failure cutoff; debug helpers
+          </td>
+        </tr>
+        <tr>
+          <td><code>src/console-watcher.ts</code></td>
+          <td>When to re-sync, and ignoring our own mutations</td>
+        </tr>
+        <tr>
+          <td><code>src/console-dom.ts</code></td>
+          <td>Every console selector, in one place</td>
+        </tr>
+        <tr>
+          <td><code>src/list-filter.ts</code></td>
+          <td>Per-panel filter, overlay, keyboard nav, scroll-to-row</td>
+        </tr>
+        <tr>
+          <td><code>src/query-view.ts</code></td>
+          <td>Builds the query-builder URL for a prefix search</td>
+        </tr>
+        <tr>
+          <td><code>src/field-filter.ts</code></td>
+          <td>Key/value filter over an open document's fields</td>
+        </tr>
+        <tr>
+          <td><code>src/document-expander.ts</code></td>
+          <td>Opens collapsed branches, disclosure controls only</td>
+        </tr>
+        <tr>
+          <td><code>src/document-parser.ts</code></td>
+          <td>Fields DOM to a plain object, with type casting</td>
+        </tr>
+        <tr>
+          <td><code>src/copy-button.ts</code></td>
+          <td>Breadcrumb button, clipboard write, feedback</td>
+        </tr>
+        <tr>
+          <td><code>src/theme.ts</code></td>
+          <td>Resolves surface, light/dark and accent from the page</td>
+        </tr>
+      </table>
+
+      <h2>Tests</h2>
+      <p>
+        The browser-dependent parts are verified by using the extension; what is
+        testable without a browser is tested, and those are the parts where a
+        silent mistake is expensive.
+      </p>
+      <table>
+        <tr>
+          <th>Test file</th>
+          <th>Pins down</th>
+        </tr>
+        <tr>
+          <td><code>tests/query-view.test.ts</code></td>
+          <td>
+            The exact query string the console produces, length prefixes, nested
+            scope paths, and that the page's project path survives
+          </td>
+        </tr>
+        <tr>
+          <td><code>tests/theme.test.ts</code></td>
+          <td>
+            That the two entry points cannot recurse, that an unpainted element
+            resolves to its painted ancestor, and that light and dark map to the
+            right accent
+          </td>
+        </tr>
+        <tr>
+          <td><code>tests/document-parser.test.ts</code></td>
+          <td>
+            Type casting, array ordering by numeric key, empty map versus empty
+            array, and unwrapping stringified JSON without mangling text that
+            merely looks like it
+          </td>
+        </tr>
+      </table>
+
+      <h2>Build and release</h2>
+      <figure>
+        <pre class="mermaid">
+flowchart LR
+  A[package.json version] --> B[vite build]
+  B --> C[build-manifest.mjs]
+  C --> D{Name and description<br/>within store limits?}
+  D -->|No| E[Build fails]
+  D -->|Yes| F[dist/manifest.json]
+  F --> G[zip to firepanel.zip]
+  H[git tag vX.Y.Z] --> I{Tag equals<br/>package.json?}
+  I -->|No| J[Release fails]
+  I -->|Yes| K[typecheck + tests + package]
+  K --> L[GitHub release with the zip]
+  L --> M[Upload to Chrome Web Store]
+        </pre>
+        <figcaption>
+          The manifest has no version of its own, so the tag, the package and
+          the published extension cannot disagree.
+        </figcaption>
+      </figure>
+
+      <h2>Operating it</h2>
+      <table>
+        <tr>
+          <th>Situation</th>
+          <th>What to do</th>
+        </tr>
+        <tr>
+          <td>A filter box stops appearing</td>
+          <td>
+            The console's markup moved. Every selector is in
+            <code>src/console-dom.ts</code>.
+          </td>
+        </tr>
+        <tr>
+          <td>Copy JSON reports "n not expanded"</td>
+          <td>
+            Run <code>__firepanelDebug()</code> in DevTools; it prints the
+            markup of one collapsed field's click target.
+          </td>
+        </tr>
+        <tr>
+          <td>Colours look wrong</td>
+          <td>
+            Run <code>__firepanelTheme()</code>; it prints the reference
+            element, resolved surface and whether anything painted was found.
+          </td>
+        </tr>
+        <tr>
+          <td>Nothing works at all</td>
+          <td>
+            Look for <code>[Firepanel]</code> in the page console. A startup
+            throw is reported there rather than swallowed.
+          </td>
+        </tr>
+      </table>
+    </main>
+
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: "dark",
+        themeVariables: {
+          background: "#1f2430",
+          primaryColor: "#242b39",
+          primaryTextColor: "#e7ecf3",
+          primaryBorderColor: "#2dd4bf",
+          lineColor: "#5b677a",
+          fontSize: "14px",
+        },
+      });
+    </script>
+  </body>
+</html>
