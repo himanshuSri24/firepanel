@@ -32,6 +32,8 @@ export class Theme {
   }
 
   private static prefersDark(): boolean {
+    if (typeof window.matchMedia !== "function") return true;
+
     return window.matchMedia("(prefers-color-scheme: dark)").matches;
   }
 

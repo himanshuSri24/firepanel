@@ -100,7 +100,9 @@ export class CopyJsonButton {
 
       if (!data || Object.keys(data).length === 0) {
         this.setLabel("Nothing to copy", FEEDBACK_MS);
-        warn("Parsed no fields. Run window.__fctDebug() and share the output.");
+        warn(
+          "Parsed no fields. Run window.__firepanelDebug() and share the output.",
+        );
         return;
       }
 

@@ -1,8 +1,13 @@
-import { SELECTORS, ConsoleDom, MARKER_ATTRIBUTE, nextFrame } from "./console-dom";
+import {
+  SELECTORS,
+  ConsoleDom,
+  MARKER_ATTRIBUTE,
+  nextFrame,
+} from "./console-dom";
 import { DocumentExpander } from "./document-expander";
 import { Theme } from "./theme";
 
-const HIDDEN_ATTRIBUTE = "data-fct-hidden";
+const HIDDEN_ATTRIBUTE = "data-firepanel-hidden";
 const DEBOUNCE_MS = 120;
 
 // Filters a document's fields by key. Nested keys only exist in the DOM once
@@ -35,7 +40,10 @@ export class FieldFilter {
       this.expanded = false;
     }
 
-    if (this.wrapper?.isConnected && this.background === Theme.surfaceOf(panel)) {
+    if (
+      this.wrapper?.isConnected &&
+      this.background === Theme.surfaceOf(panel)
+    ) {
       return;
     }
 
@@ -89,6 +97,10 @@ export class FieldFilter {
     input.placeholder = "Filter fields by key or value…";
     input.autocomplete = "off";
     input.spellcheck = false;
+    input.setAttribute(
+      "aria-label",
+      "Filter this document's fields by key or value",
+    );
 
     Object.assign(input.style, {
       flex: "1",
@@ -197,7 +209,9 @@ export class FieldFilter {
     const parts: string[] = [];
 
     if (this.keyMatches > 0) {
-      parts.push(`${this.keyMatches} ${this.keyMatches === 1 ? "key" : "keys"}`);
+      parts.push(
+        `${this.keyMatches} ${this.keyMatches === 1 ? "key" : "keys"}`,
+      );
     }
 
     if (this.valueMatches > 0) {

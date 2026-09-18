@@ -74,8 +74,9 @@ export class DocumentExpander {
 
   private findDisclosure(node: HTMLElement): HTMLElement | null {
     const target =
-      node.querySelector<HTMLElement>(`:scope > ${SELECTORS.nodeClickTarget}`) ??
-      node;
+      node.querySelector<HTMLElement>(
+        `:scope > ${SELECTORS.nodeClickTarget}`,
+      ) ?? node;
 
     const aria = target.matches('[aria-expanded="false"]')
       ? target
@@ -123,7 +124,7 @@ export class DocumentExpander {
     return ACTION_LABEL_PATTERN.test(description);
   }
 
-  // Printed by window.__fctDebug() so an unrecognised console layout can be
+  // Printed by window.__firepanelDebug() so an unrecognised console layout can be
   // pinned down without guessing at selectors.
   describeCollapsedSample(): string {
     const fieldsPanel = ConsoleDom.fieldsPanel();

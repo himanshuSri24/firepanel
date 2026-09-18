@@ -20,7 +20,7 @@ export const SELECTORS = {
   nodeChildren: ".database-children",
 } as const;
 
-export const MARKER_ATTRIBUTE = "data-fct";
+export const MARKER_ATTRIBUTE = "data-firepanel";
 
 export class ConsoleDom {
   // Panels are found through their virtual scroller rather than by tag name, so
@@ -110,5 +110,5 @@ export function nextFrame(delayMs = 0): Promise<void> {
 }
 
 export function warn(...args: unknown[]): void {
-  console.warn("[Firestore Console Tools]", ...args);
+  console.warn("[Firepanel]", ...args);
 }

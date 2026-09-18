@@ -31,7 +31,19 @@ export class ConsoleWatcher {
 
     // A plain tick. Cheaper than trying to predict every way the console can
     // repaint itself, and the components below decide if anything changed.
-    setInterval(() => this.schedule(), POLL_MS);
+    // A hidden tab is not being looked at, so nothing needs re-injecting until
+    // it comes back.
+    setInterval(() => {
+      if (document.hidden) return;
+
+      this.schedule();
+    }, POLL_MS);
+
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) return;
+
+      this.schedule();
+    });
   }
 
   // A theme toggle rewrites classes and inline styles on the document root
@@ -50,7 +62,6 @@ export class ConsoleWatcher {
       });
     }
   }
-
 
   private schedule(): void {
     if (this.debounceTimer) clearTimeout(this.debounceTimer);

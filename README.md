@@ -1,9 +1,13 @@
-# Firestore Console Tools
+# Firepanel
 
-A Chrome extension that adds three things to the Firebase Firestore console: a
-search box on every list, a key filter for the fields of an open document, and a
-**Copy JSON** button that copies a whole document without you expanding it
-first.
+[![CI](https://github.com/himanshuSriv24/firepanel/actions/workflows/ci.yml/badge.svg)](https://github.com/himanshuSriv24/firepanel/actions/workflows/ci.yml)
+
+Tools for the Firebase Firestore console: a search box on every list, a filter
+for the fields of an open document, and a **Copy JSON** button that copies a
+whole document without you expanding it first.
+
+Firepanel is an independent project. It is not affiliated with, endorsed by, or
+sponsored by Google. Firebase and Firestore are trademarks of Google LLC.
 
 It is **read-only by construction**. It holds one permission (`clipboardWrite`),
 runs only on `console.firebase.google.com`, talks to no network of its own, and
@@ -84,7 +88,7 @@ contains a match is hidden. A match keeps its whole value on screen, so matching
 a map shows what is inside it. `Esc` clears.
 
 The count on the right reports the two kinds separately — `3 keys · 2 values` —
-because a value hit shows a row whose *key* does not contain what you typed, and
+because a value hit shows a row whose _key_ does not contain what you typed, and
 an unlabelled total makes that look like a bug.
 
 Only leaf fields hold a value: a map's value is its children, so a map is never
@@ -127,34 +131,52 @@ change anything. Two rules hold that up:
   has already rendered.
 - Expanding a document only ever clicks a **disclosure control**: an element with
   `aria-expanded="false"`, or, when the console ships no ARIA, an element sitting
-  to the *left* of the field key (where the console puts the chevron and never
+  to the _left_ of the field key (where the console puts the chevron and never
   puts a row action). Anything labelled edit / delete / add / copy is excluded,
   and a field whose disclosure cannot be identified is skipped and reported —
   the button then reads `Copied (N not expanded)`.
 
 ## Install
 
+From the Chrome Web Store (recommended — it updates itself):
+
+> _Listing link goes here once the first review has passed._
+
+Or from a release: download `firepanel.zip` from
+[Releases](https://github.com/himanshuSriv24/firepanel/releases/latest), extract
+it to a folder you will keep, then `chrome://extensions/` → **Developer mode**
+on → **Load unpacked** → select that folder. Chrome reads the folder from disk
+on every start, so it has to stay put.
+
+## Development
+
 ```bash
 npm i
-npm run build:zip     # → firestore-console-tools.zip
+npm test          # unit tests
+npm run typecheck
+npm run package   # → firepanel.zip, and dist/ to load unpacked
 ```
 
-Then in Chrome: `chrome://extensions/` → **Developer mode** on → **Load
-unpacked** → select `dist/` (keep the folder where it is; Chrome reads it from
-disk on every load). After a rebuild, hit **↺** on the extension card.
+`dist/manifest.json` is generated from `package.json` at build time, so the
+version, name and description have one source of truth and the store's field
+limits are checked before submission rather than after.
+
+To release: bump the version in `package.json`, tag it `vX.Y.Z` and push the
+tag. CI checks that the tag matches, runs the tests, builds the zip and creates
+the GitHub release. Nothing is built by hand.
 
 ## Layout
 
-| File | Role |
-| --- | --- |
-| `src/console-dom.ts` | Every console selector, in one place |
-| `src/list-filter.ts` | `PanelListFilter` per list, `PanelFilterManager` reconciles them |
-| `src/field-filter.ts` | Key filter for an open document's fields |
-| `src/document-expander.ts` | Opens collapsed maps/arrays before a copy or field search |
-| `src/document-parser.ts` | Fields DOM → plain object |
-| `src/copy-button.ts` | The breadcrumb button and clipboard write |
-| `src/console-watcher.ts` | Re-injects across SPA navigation, ignores our own mutations |
-| `src/theme.ts` | Resolves colours from what the console actually paints, light or dark |
+| File                       | Role                                                                  |
+| -------------------------- | --------------------------------------------------------------------- |
+| `src/console-dom.ts`       | Every console selector, in one place                                  |
+| `src/list-filter.ts`       | `PanelListFilter` per list, `PanelFilterManager` reconciles them      |
+| `src/field-filter.ts`      | Key filter for an open document's fields                              |
+| `src/document-expander.ts` | Opens collapsed maps/arrays before a copy or field search             |
+| `src/document-parser.ts`   | Fields DOM → plain object                                             |
+| `src/copy-button.ts`       | The breadcrumb button and clipboard write                             |
+| `src/console-watcher.ts`   | Re-injects across SPA navigation, ignores our own mutations           |
+| `src/theme.ts`             | Resolves colours from what the console actually paints, light or dark |
 
 ## Theme
 
@@ -173,6 +195,15 @@ selectors. Everything the extension matches on lives in `src/console-dom.ts`,
 and the expander is the piece most likely to drift. Open a document with a
 collapsed map, run `window.__fctDebug()` in DevTools, and it prints the real
 markup of one collapsed field's click target — enough to pin the selector.
+
+## Privacy
+
+Firepanel collects nothing, stores nothing and sends nothing anywhere. The full
+policy is in [PRIVACY.md](PRIVACY.md).
+
+## Licence
+
+[MIT](LICENSE).
 
 Prior art: the collection-filter approach (filtering a virtual-scrolled list via
 a harvested name cache and an overlay) is taken from

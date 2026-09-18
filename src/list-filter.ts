@@ -12,6 +12,12 @@ const FALLBACK_ITEM_HEIGHT = 32;
 // The console encodes a data path as ~2F-separated segments after /data/.
 const PATH_SEPARATOR = "~2F";
 
+interface ActivatableRow {
+  element: HTMLElement;
+  activate: () => void;
+  resting: string;
+}
+
 // One filter per list panel. The console renders these lists through a CDK
 // virtual scroller, so only the visible rows exist in the DOM — names are
 // harvested as rows render and topped up by a bounded scroll scan on first use.
@@ -29,6 +35,8 @@ export class PanelListFilter {
   private scanned = false;
   private scanning = false;
   private scanTruncated = false;
+  private rows: ActivatableRow[] = [];
+  private activeIndex = -1;
 
   constructor(panel: HTMLElement) {
     this.panel = panel;
@@ -107,6 +115,12 @@ export class PanelListFilter {
         : `Filter ${this.kind}…`;
     input.autocomplete = "off";
     input.spellcheck = false;
+    input.setAttribute(
+      "aria-label",
+      this.kind === "documents"
+        ? "Filter documents, search by ID prefix, or open a document ID"
+        : `Filter ${this.kind}`,
+    );
 
     Object.assign(input.style, {
       width: "100%",
@@ -141,7 +155,24 @@ export class PanelListFilter {
         return;
       }
 
-      if (event.key !== "Enter" || this.kind !== "documents") return;
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        this.moveActive(event.key === "ArrowDown" ? 1 : -1);
+        return;
+      }
+
+      if (event.key !== "Enter") return;
+
+      // A highlighted row wins; otherwise Enter falls through to the typed text.
+      const active = this.rows[this.activeIndex];
+
+      if (active) {
+        event.preventDefault();
+        active.activate();
+        return;
+      }
+
+      if (this.kind !== "documents") return;
 
       const value = input.value.trim();
       if (!value) return;
@@ -168,6 +199,7 @@ export class PanelListFilter {
 
     const overlay = document.createElement("div");
     overlay.setAttribute(MARKER_ATTRIBUTE, "filter-results");
+    overlay.setAttribute("role", "listbox");
 
     Object.assign(overlay.style, {
       display: "none",
@@ -271,6 +303,9 @@ export class PanelListFilter {
   private applyFilter(query: string): void {
     const overlay = this.overlay;
     if (!overlay) return;
+
+    this.rows = [];
+    this.activeIndex = -1;
 
     if (!query) {
       overlay.style.display = "none";
@@ -421,6 +456,7 @@ export class PanelListFilter {
 
     row.setAttribute(MARKER_ATTRIBUTE, "filter-prefix-row");
     row.addEventListener("click", () => this.openPrefixQuery(prefix));
+    this.registerRow(row, () => this.openPrefixQuery(prefix));
 
     return row;
   }
@@ -439,6 +475,7 @@ export class PanelListFilter {
 
     row.setAttribute(MARKER_ATTRIBUTE, "filter-open-row");
     row.addEventListener("click", () => this.openChild(id));
+    this.registerRow(row, () => this.openChild(id));
 
     return row;
   }
@@ -562,7 +599,39 @@ export class PanelListFilter {
       void this.select(name);
     });
 
+    this.registerRow(row, () => void this.select(name));
+
     return row;
+  }
+
+  private registerRow(element: HTMLElement, activate: () => void): void {
+    element.setAttribute("role", "option");
+    element.setAttribute("aria-selected", "false");
+
+    this.rows.push({ element, activate, resting: element.style.background });
+  }
+
+  private moveActive(step: number): void {
+    if (this.rows.length === 0) return;
+
+    const next = this.activeIndex + step;
+
+    this.setActive(next < 0 ? this.rows.length - 1 : next % this.rows.length);
+  }
+
+  // Each row remembers the background it rests at, because the action rows sit
+  // on an accent tint that a blanket reset would wipe.
+  private setActive(index: number): void {
+    this.rows.forEach((row, at) => {
+      const active = at === index;
+
+      row.element.style.background = active ? Theme.hoverTint() : row.resting;
+      row.element.setAttribute("aria-selected", String(active));
+
+      if (active) row.element.scrollIntoView({ block: "nearest" });
+    });
+
+    this.activeIndex = index;
   }
 
   private highlight(name: string, query: string): Node[] {
